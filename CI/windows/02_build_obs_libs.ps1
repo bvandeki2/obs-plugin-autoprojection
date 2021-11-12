@@ -57,6 +57,7 @@ function Configure-OBS-Libs {
         "-DENABLE_PLUGINS=OFF",
         "-DENABLE_UI=ON",
         "-DENABLE_SCRIPTING=OFF",
+        "-DBUILD_BROWSER=OFF",
         "$(if (Test-Path Variable:$Quiet) { "-Wno-deprecated -Wno-dev --log-level=ERROR" })"
     )
 
