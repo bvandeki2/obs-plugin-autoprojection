@@ -22,6 +22,9 @@ target_sources(${CMAKE_PROJECT_NAME}
 	PRIVATE
 		src/plugin-main.c)
 
+# lets us avoid setting up chromium, which I don't really want to do rn
+SET(BUILD_BROWSER, "OFF")
+
 # /!\ TAKE NOTE: No need to edit things past this point /!\
 
 find_package(libobs REQUIRED)
