@@ -291,7 +291,7 @@ jobs:
           key: ${{ runner.os }}-pr-${{ env.CACHE_NAME }}-${{ env.OBS_VERSION }}
 
       - name: 'Build libobs and obs-frontend-api'
-        working-directory: 'obs-studio'
+        working-directory: 'plugin'
         run: CI/windows/02_build_obs_libs.ps1 -BuildArch "${{ matrix.arch }}-bit"
 
       - name: 'Build plugin'
