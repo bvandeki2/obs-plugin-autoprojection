@@ -2,7 +2,7 @@ Param(
     [Switch]$Help,
     [Switch]$Quiet,
     [Switch]$Verbose,
-    [Switch]$Choco,
+    [Switch]$NoChoco,
     [Switch]$SkipDependencyChecks,
     [Switch]$BuildInstaller,
     [Switch]$CombinedArchs,
@@ -25,15 +25,13 @@ Param(
 #
 # Parameters:
 #   -Help                   : Print usage help
-#   -Quiet                  : Suppress most build process output
-#   -Verbose                : Enable more verbose build process output
-#   -SkipDependencyChecks   : Skips dependency checks
-#   -Choco                  : Skip automatic dependency installation
+#   -NoChco                 : Skip automatic dependency installation
 #                             via Chocolatey
+#   -SkipDependencyChecks   : Skips dependency checks
 #   -BuildDirectory         : Directory to use for builds
-#                             Default: build64 on 64-bit systems
-#                                      build32 on 32-bit systems
-#  -BuildArch               : Build architecture to use ("32-bit" or "64-bit")
+#                             Default: Win64 on 64-bit systems
+#                                      Win32 on 32-bit systems
+#  -BuildArch               : Build architecture to use (32bit or 64bit)
 #  -BuildConfiguration      : Build configuration to use
 #                             Default: RelWithDebInfo
 #  -BuildInstaller          : Build InnoSetup installer - Default: off"
@@ -51,12 +49,7 @@ $ErrorActionPreference = "Stop"
 
 $_RunObsBuildScript = $true
 
-try {
-    $CheckoutDir = git rev-parse --show-toplevel
-} Catch {
-    Write-Failure "Not a git checkout or no git client installed. Please install git on your system use a git checkout to use this build script."
-    exit 1
-}
+$CheckoutDir = git rev-parse --show-toplevel
 
 $DepsBuildDir = "${CheckoutDir}/../obs-build-dependencies"
 $ObsBuildDir = "${CheckoutDir}/../obs-studio"
@@ -67,23 +60,23 @@ if (Test-Path ${CheckoutDir}/CI/include/build_environment.ps1) {
 
 . ${CheckoutDir}/CI/include/build_support_windows.ps1
 
-# Handle installation of build system components and build dependencies
+## DEPENDENCY INSTALLATION ##
 . ${CheckoutDir}/CI/windows/01_install_dependencies.ps1
 
-# Handle OBS build
+## OBS LIBRARY BUILD ##
 . ${CheckoutDir}/CI/windows/02_build_obs_libs.ps1
 
-# Handle plugin build
+## PLUGIN BUILD ##
 . ${CheckoutDir}/CI/windows/03_build_plugin.ps1
 
-# Handle packaging
+## PLUGIN PACKAGE AND NOTARIZE ##
 . ${CheckoutDir}/CI/windows/04_package_plugin.ps1
 
 ## MAIN SCRIPT FUNCTIONS ##
 function Build-Obs-Plugin-Main {
     Ensure-Directory ${CheckoutDir}
     Write-Step "Fetching version tags..."
-    $null = git fetch origin --tags
+    & git fetch origin --tags
     $GitBranch = git rev-parse --abbrev-ref HEAD
     $GitHash = git rev-parse --short HEAD
     $ErrorActionPreference = "SilentlyContiue"
@@ -97,7 +90,7 @@ function Build-Obs-Plugin-Main {
     $FileName = "${ProductName}-${GitTag}-${GitHash}"
 
     if(!($SkipDependencyChecks.isPresent)) {
-        Install-Dependencies -Choco:$Choco
+        Install-Dependencies -NoChoco:$NoChoco
     }
 
     if($CombinedArchs.isPresent) {
@@ -116,14 +109,14 @@ function Build-Obs-Plugin-Main {
 function Print-Usage {
     Write-Host "build-windows.ps1 - Build script for ${ProductName}"
     $Lines = @(
-        "Usage: ${_ScriptName}",
+        "Usage: ${MyInvocation.MyCommand.Name}",
         "-Help                    : Print this help",
         "-Quiet                   : Suppress most build process output"
         "-Verbose                 : Enable more verbose build process output"
+        "-NoChoco                 : Skip automatic dependency installation via Chocolatey - Default: on",
         "-SkipDependencyChecks    : Skips dependency checks - Default: off",
-        "-Choco                   : Enable automatic dependency installation via Chocolatey - Default: off",
         "-BuildDirectory          : Directory to use for builds - Default: build64 on 64-bit systems, build32 on 32-bit systems",
-        "-BuildArch               : Build architecture to use ('32-bit' or '64-bit') - Default: local architecture",
+        "-BuildArch               : Build architecture to use (32bit or 64bit) - Default: local architecture",
         "-BuildConfiguration      : Build configuration to use - Default: RelWithDebInfo",
         "-BuildInstaller          : Build InnoSetup installer - Default: off",
         "-CombinedArchs           : Create combined packages and installer (64-bit and 32-bit) - Default: off"
@@ -131,7 +124,6 @@ function Print-Usage {
     $Lines | Write-Host
 }
 
-$_ScriptName = "$($MyInvocation.MyCommand.Name)"
 if($Help.isPresent) {
     Print-Usage
     exit 0

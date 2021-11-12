@@ -27,7 +27,7 @@ build_obs_libs() {
         -DENABLE_PLUGINS=OFF \
         -DENABLE_UI=ON \
         -DENABLE_SCRIPTING=OFF \
-        -DCMAKE_PREFIX_PATH="${DEPS_BUILD_DIR}/obs-plugin-deps" \
+        -DCMAKE_PREFIX_PATH="${DEPS_BUILD_DIR}/obs-deps" \
         ${QUIET:+-Wno-deprecated -Wno-dev --log-level=ERROR}
 
     step "Building libobs and obs-frontend-api"
@@ -44,8 +44,8 @@ build-obs-libs-standalone() {
     source "${CHECKOUT_DIR}/CI/include/build_support.sh"
     source "${CHECKOUT_DIR}/CI/include/build_support_macos.sh"
 
-    check_archs
     check_macos_version
+    check_archs
     build_obs_libs
 }
 

@@ -21,10 +21,9 @@
 #   -c, --codesign                  : Codesign plugin and installer
 #   -n, --notarize                  : Notarize plugin installer
 #                                     (implies --codesign)
-#   --xcode                         : Create Xcode build environment instead
-#                                     of Ninja
-#   --build-dir                     : Specify alternative build directory
-#                                     (default: build)"
+#   -b, --build-dir                 : Specify alternative build directory
+#                                     (default: build)
+#
 # Environment Variables (optional):
 #   MACOS_DEPS_VERSION  : Pre-compiled macOS dependencies version
 #   QT_VERSION          : Pre-compiled Qt version
@@ -48,16 +47,16 @@ OBS_BUILD_DIR="${CHECKOUT_DIR}/../obs-studio"
 source "${CHECKOUT_DIR}/CI/include/build_support.sh"
 source "${CHECKOUT_DIR}/CI/include/build_support_macos.sh"
 
-## INSTALL DEPENDENCIES ##
+## DEPENDENCY INSTALLATION ##
 source "${CHECKOUT_DIR}/CI/macos/01_install_dependencies.sh"
 
-## BUILD OBS LIBRARIES ##
+## OBS LIBRARY BUILD ##
 source "${CHECKOUT_DIR}/CI/macos/02_build_obs_libs.sh"
 
-## BUILD PLUGIN ##
+## PLUGIN BUILD ##
 source "${CHECKOUT_DIR}/CI/macos/03_build_plugin.sh"
 
-## PACKAGE AND NOTARIZE PLUGIN ##
+## PLUGIN PACKAGE AND NOTARIZE ##
 source "${CHECKOUT_DIR}/CI/macos/04_package_plugin.sh"
 
 ## MAIN SCRIPT FUNCTIONS ##
@@ -72,8 +71,7 @@ print_usage() {
         "-p, --package                  : Create installer for plugin\n" \
         "-c, --codesign                 : Codesign plugin and installer\n" \
         "-n, --notarize                 : Notarize plugin installer (implies --codesign)\n" \
-        "--xcode                        : Create Xcode build environment instead of Ninja\n" \
-        "--build-dir                    : Specify alternative build directory (default: build)\n"
+        "-b, --build-dir                : Specify alternative build directory (default: build)\n"
 }
 
 obs-build-main() {
@@ -87,29 +85,27 @@ obs-build-main() {
             -p | --package ) PACKAGE=TRUE; shift ;;
             -c | --codesign ) CODESIGN=TRUE; shift ;;
             -n | --notarize ) NOTARIZE=TRUE; PACKAGE=TRUE CODESIGN=TRUE; shift ;;
-            --xcode ) XCODE=TRUE shift ;;
-            --build-dir ) BUILD_DIR="${2}"; shift 2 ;;
+            -b | --build-dir ) BUILD_DIR="${2}"; shift 2 ;;
             -- ) shift; break ;;
             * ) break ;;
         esac
     done
 
     ensure_dir "${CHECKOUT_DIR}"
-    check_archs
     check_macos_version
+    check_archs
     step "Fetching version tags..."
     /usr/bin/git fetch origin --tags
-
     GIT_BRANCH=$(/usr/bin/git rev-parse --abbrev-ref HEAD)
     GIT_HASH=$(/usr/bin/git rev-parse --short HEAD)
     GIT_TAG=$(/usr/bin/git describe --tags --abbrev=0 2&>/dev/null || true)
 
     if [ "${ARCH}" = "arm64" ]; then
         FILE_NAME="${PRODUCT_NAME}-${GIT_TAG:-${PRODUCT_VERSION}}-${GIT_HASH}-macOS-Apple.pkg"
-    elif [ "${ARCH}" = "universal" ]; then
-        FILE_NAME="${PRODUCT_NAME}-${GIT_TAG:-${PRODUCT_VERSION}}-${GIT_HASH}-macOS.pkg"
-    else
+    elif [ "${ARCH}" = "x86_64" ]; then
         FILE_NAME="${PRODUCT_NAME}-${GIT_TAG:-${PRODUCT_VERSION}}-${GIT_HASH}-macOS-Intel.pkg"
+    else
+        FILE_NAME="${PRODUCT_NAME}-${GIT_TAG:-${PRODUCT_VERSION}}-${GIT_HASH}-macOS-Universal.pkg"
     fi
 
     if [ -z "${SKIP_DEP_CHECKS}" ]; then

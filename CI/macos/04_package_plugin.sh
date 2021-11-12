@@ -44,12 +44,10 @@ package_obs_plugin() {
     step "Package ${PRODUCT_NAME}..."
     packagesbuild ./bundle/installer-macOS.generated.pkgproj
 
-    if [ "${CODESIGN}" ]; then
-        step "Codesigning installer package..."
-        read_codesign_ident_installer
+    step "Codesigning installer package..."
+    read_codesign_ident_installer
 
-        /usr/bin/productsign --sign "${CODESIGN_IDENT_INSTALLER}" "${BUILD_DIR}/${PRODUCT_NAME}.pkg" "${FILE_NAME}"
-    fi
+    /usr/bin/productsign --sign "${CODESIGN_IDENT_INSTALLER}" "${BUILD_DIR}/${PRODUCT_NAME}.pkg" "${FILE_NAME}"
 }
 
 notarize_obs_plugin() {
@@ -98,8 +96,8 @@ package-plugin-standalone() {
     GIT_HASH=$(/usr/bin/git rev-parse --short HEAD)
     GIT_TAG=$(/usr/bin/git describe --tags --abbrev=0 2&>/dev/null || true)
 
-    check_archs
     check_macos_version
+    check_archs
 
     if [ "${ARCH}" = "arm64" ]; then
         FILE_NAME="${PRODUCT_NAME}-${GIT_TAG:-${PRODUCT_VERSION}}-${GIT_HASH}-macOS-Apple.pkg"

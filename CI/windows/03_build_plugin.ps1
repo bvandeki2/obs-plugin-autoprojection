@@ -27,48 +27,37 @@ function Build-OBS-Plugin {
     )
 
     Write-Status "Build plugin ${ProductName}"
-
-    Configure-OBS-Plugin
-
     Ensure-Directory ${CheckoutDir}
-    Write-Step "Build OBS plugin targets..."
 
-    Invoke-Expression "cmake --build ${BuildDirectory}$(if (${BuildArch} -eq "64-bit") { "64" } else { "32" }) --config ${BuildConfiguration}"
+    if ($BuildArch -eq "64-bit") {
+        $QtFolder = "${CheckoutDir}/../obs-build-dependencies/Qt_${WindowsQtVersion}/msvc2019_64"
+        $DepsFolder = "${CheckoutDir}/../obs-build-dependencies/dependencies${WindowsDepsVersion}/win64"
+        $Env:CMAKE_PREFIX_PATH="${QtFolder};${DepsFolder}/bin;${DepsFolder}"
 
-    Ensure-Directory ${CheckoutDir}
-}
+        cmake -S . -B "${BuildDirectory}64" -G "Visual Studio 16 2019" `
+            -DCMAKE_GENERATOR_PLATFORM=x64 `
+            -DCMAKE_SYSTEM_VERSION="${CmakeSystemVersion}" `
+            "$(if (Test-Path Variable:$Quiet) { "-Wno-deprecated -Wno-dev --log-level=ERROR" })"
 
-function Configure-OBS-Plugin {
-    Ensure-Directory ${CheckoutDir}
-    Write-Status "Configuration of OBS plugin build system"
+        cmake --build "${BuildDirectory}64" --config ${BuildConfiguration}
+    } else {
+        $QtFolder = "${CheckoutDir}/../obs-build-dependencies/Qt_${WindowsQtVersion}/msvc2019"
+        $DepsFolder = "${CheckoutDir}/../obs-build-dependencies/dependencies${WindowsDepsVersion}/win32"
+        $Env:CMAKE_PREFIX_PATH="${QtFolder};${DepsFolder}/bin;${DepsFolder}"
 
-    $QtDirectory = "${CheckoutDir}/../obs-build-dependencies/Qt_${WindowsQtVersion}/msvc2019$(if (${BuildArch} -eq "64-bit") { "_64" })"
-    $DepsDirectory = "${CheckoutDir}../obs-build-dependencies/dependencies${WindowsDepsVersion}/win$(if (${BuildArch} -eq "64-bit") { "64" } else { "32" })"
-    $CmakePrefixPath = "${QtDirectory};${DepsDirectory}/bin;${DepsDirectory}"
-    $BuildDirectoryActual = "${BuildDirectory}$(if (${BuildArch} -eq "64-bit") { "64" } else { "32" })"
-    $GeneratorPlatform = "$(if (${BuildArch} -eq "64-bit") { "x64" } else { "Win32" })"
+        cmake -S . -B "${BuildDirectory}32" -G "Visual Studio 16 2019" `
+            -DCMAKE_GENERATOR_PLATFORM=Win32 `
+            -DCMAKE_SYSTEM_VERSION="${CmakeSystemVersion}" `
+            "$(if (Test-Path Variable:$Quiet) { "-Wno-deprecated -Wno-dev --log-level=ERROR" })"
 
-    $CmakeCommand = @(
-        "-S . -B `"${BuildDirectoryActual}`"",
-        "-G `"Visual Studio 16 2019`"",
-        "-DCMAKE_GENERATOR_PLATFORM=`"${GeneratorPlatform}`"",
-        "-DCMAKE_SYSTEM_VERSION=`"${CmakeSystemVersion}`"",
-        "-DCMAKE_PREFIX_PATH=`"${CmakePrefixPath}`"",
-        "$(if (Test-Path Variable:$Quiet) { "-Wno-deprecated -Wno-dev --log-level=ERROR" })"
-    )
-
-    Invoke-Expression "cmake ${CmakeCommand}"
+        cmake --build "${BuildDirectory}32" --config ${BuildConfiguration}
+    }
 
     Ensure-Directory ${CheckoutDir}
 }
 
 function Build-Plugin-Standalone {
-    try {
-        $CheckoutDir = Invoke-Expression "git rev-parse --show-toplevel"
-    } Catch {
-        Write-Failure "Not a git checkout or no git client installed. Please install git on your system and use a git checkout to use this build script."
-        exit 1
-    }
+    $CheckoutDir = git rev-parse --show-toplevel
 
     if (Test-Path ${CheckoutDir}/CI/include/build_environment.ps1) {
         . ${CheckoutDir}/CI/include/build_environment.ps1
@@ -81,7 +70,7 @@ function Build-Plugin-Standalone {
 
 function Print-Usage {
     $Lines = @(
-        "Usage: ${_ScriptName}",
+        "Usage: ${MyInvocation.MyCommand.Name}",
         "-Help                    : Print this help",
         "-Quiet                   : Suppress most build process output",
         "-Verbose                 : Enable more verbose build process output",
@@ -94,7 +83,6 @@ function Print-Usage {
 }
 
 if(!(Test-Path variable:_RunObsBuildScript)) {
-    $_ScriptName = "$($MyInvocation.MyCommand.Name)"
     if($Help.isPresent) {
         Print-Usage
         exit 0
