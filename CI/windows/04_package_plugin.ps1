@@ -33,11 +33,11 @@ function Package-OBS-Plugin {
 
     if ($CombinedArchs.isPresent) {
         if (!(Test-Path ${CheckoutDir}/release/obs-plugins/64bit)) {
-            cmake --build ${BuildDirectory}64 --config ${BuildConfiguration} -t install
+            Invoke-Expression "cmake --build ${BuildDirectory}64 --config ${BuildConfiguration} -t install"
         }
 
         if (!(Test-Path ${CheckoutDir}/release/obs-plugins/32bit)) {
-            cmake --build ${BuildDirectory}32 --config ${BuildConfiguration} -t install
+            Invoke-Expression "cmake --build ${BuildDirectory}32 --config ${BuildConfiguration} -t install"
         }
 
         $CompressVars = @{
@@ -51,15 +51,16 @@ function Package-OBS-Plugin {
         Compress-Archive -Force @CompressVars
         if(($BuildInstaller.isPresent) -And (Test-CommandExists "iscc")) {
             Write-Step "Creating installer..."
-            & iscc ${CheckoutDir}/installer/installer-Windows.generated.iss /O. /F"${FileName}-Windows-Installer"
+            Invoke-Expression "iscc ${CheckoutDir}/installer/installer-Windows.generated.iss /O. /F`"${FileName}-Windows-Installer`""
         }
-    } elseif ($BuildArch -eq "64-bit") {
-        cmake --build ${BuildDirectory}64 --config ${BuildConfiguration} -t install
+    } else {
+        $_BitSuffix = $(if (${BuildArch} -eq "64-bit") { "64" } else { "32" })
+        Invoke-Expression "cmake --build ${BuildDirectory}${_BitSuffix} --config ${BuildConfiguration} -t install"
 
         $CompressVars = @{
             Path = "${CheckoutDir}/release/*"
             CompressionLevel = "Optimal"
-            DestinationPath = "${FileName}-Win64.zip"
+            DestinationPath = "${FileName}-Win${_BitSuffix}.zip"
         }
 
         Write-Step "Creating zip archive..."
@@ -68,24 +69,7 @@ function Package-OBS-Plugin {
 
         if(($BuildInstaller.isPresent) -And (Test-CommandExists "iscc")) {
             Write-Step "Creating installer..."
-            & iscc ${CheckoutDir}/installer/installer-Windows.generated.iss /O. /F"${FileName}-Win64-Installer"
-        }
-    } elseif ($BuildArch -eq "32-bit") {
-        cmake --build ${BuildDirectory}32 --config ${BuildConfiguration} -t install
-
-        $CompressVars = @{
-            Path = "${CheckoutDir}/release/*"
-            CompressionLevel = "Optimal"
-            DestinationPath = "${FileName}-Win32.zip"
-        }
-
-        Write-Step "Creating zip archive..."
-
-        Compress-Archive -Force @CompressVars
-
-        if(($BuildInstaller.isPresent) -And (Test-CommandExists "iscc")) {
-            Write-Step "Creating installer..."
-            & iscc ${CheckoutDir}/installer/installer-Windows.generated.iss /O. /F"${FileName}-Win32-Installer"
+            Invoke-Expression "iscc ${CheckoutDir}/installer/installer-Windows.generated.iss /O. /F`"${FileName}-Win${_BitSuffix}-Installer`""
         }
     }
 }
@@ -117,7 +101,7 @@ function Package-Plugin-Standalone {
 
 function Print-Usage {
     $Lines = @(
-        "Usage: ${MyInvocation.MyCommand.Name}",
+        "Usage: ${_ScriptName}",
         "-Help                    : Print this help",
         "-Quiet                   : Suppress most build process output",
         "-Verbose                 : Enable more verbose build process output",
@@ -132,6 +116,7 @@ function Print-Usage {
 
 
 if(!(Test-Path variable:_RunObsBuildScript)) {
+    $_ScriptName = "$($MyInvocation.MyCommand.Name)"
     if($Help.isPresent) {
         Print-Usage
         exit 0

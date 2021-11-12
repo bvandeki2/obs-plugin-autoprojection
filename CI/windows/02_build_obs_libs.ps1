@@ -28,44 +28,50 @@ function Build-OBS-Libs {
 
     Write-Status "Build libobs and obs-frontend-api"
 
+    Configure-OBS-Libs
+
     Ensure-Directory ${ObsBuildDir}
+    Write-Step "Build OBS targets..."
 
-    if ($BuildArch -eq "64-bit") {
-        $QtDirectory = "${CheckoutDir}/../obs-build-dependencies/Qt_${WindowsQtVersion}/msvc2019_64"
-        $DepsDirectory = "${CheckoutDir}/../obs-build-dependencies/dependencies${WindowsDepsVersion}/win64"
-        $Env:CMAKE_PREFIX_PATH="${QtDirectory};${DepsDirectory}/bin;${DepsDirectory}"
-
-        cmake -S . -B "plugin_${BuildDirectory}64" -G "Visual Studio 16 2019" `
-            -DCMAKE_SYSTEM_VERSION="${CmakeSystemVersion}" `
-            -DCMAKE_GENERATOR_PLATFORM=x64 `
-            -DENABLE_PLUGINS=OFF `
-            -DENABLE_UI=ON `
-            -DENABLE_SCRIPTING=OFF `
-            "$(if (Test-Path Variable:$Quiet) { "-Wno-deprecated -Wno-dev --log-level=ERROR" })"
-
-        cmake --build "plugin_${BuildDirectory}64" -t obs-frontend-api --config ${BuildConfiguration}
-    } else {
-        $QtDirectory = "${CheckoutDir}/../obs-build-dependencies/Qt_${WindowsQtVersion}/msvc2019"
-        $DepsDirectory = "${CheckoutDir}/../obs-build-dependencies/dependencies${WindowsDepsVersion}/win32"
-        $Env:CMAKE_PREFIX_PATH="${QtDirectory};${DepsDirectory}/bin;${DepsDirectory}"
-
-        cmake -S . -B "plugin_${BuildDirectory}32" -G "Visual Studio 16 2019" `
-            -DCMAKE_SYSTEM_VERSION="${CmakeSystemVersion}" `
-            -DCMAKE_GENERATOR_PLATFORM=Win32 `
-            -DENABLE_PLUGINS=OFF `
-            -DENABLE_UI=ON `
-            -DENABLE_SCRIPTING=OFF `
-            "$(if (Test-Path Variable:$Quiet) { "-Wno-deprecated -Wno-dev --log-level=ERROR" })"
-
-        cmake --build "plugin_${BuildDirectory}32" -t obs-frontend-api --config ${BuildConfiguration}
-    }
+    Invoke-Expression "cmake --build plugin_${BuildDirectory}$(if (${BuildArch} -eq "64-bit") { "64" } else { "32" }) -t obs-frontend-api --config ${BuildConfiguration}"
 
     Ensure-Directory ${CheckoutDir}
 }
 
+function Configure-OBS-Libs {
+    Ensure-Directory ${ObsBuildDir}
+    Write-Status "Configuration of OBS library build"
+
+    $QtDirectory = "${CheckoutDir}/../obs-build-dependencies/Qt_${WindowsQtVersion}/msvc2019$(if (${BuildArch} -eq "64-bit") { "_64" })"
+    $DepsDirectory = "${CheckoutDir}/../obs-build-dependencies/dependencies${WindowsDepsVersion}/win$(if (${BuildArch} -eq "64-bit") { "64" } else { "32" })"
+    $CmakePrefixPath = "${QtDirectory};${DepsDirectory}/bin;${DepsDirectory}"
+    $BuildDirectoryActual = "plugin_${BuildDirectory}$(if (${BuildArch} -eq "64-bit") { "64" } else { "32" })"
+    $GeneratorPlatform = "$(if (${BuildArch} -eq "64-bit") { "x64" } else { "Win32" })"
+
+    $CmakeCommand = @(
+        "-S . -B `"${BuildDirectoryActual}`"",
+        "-G `"Visual Studio 16 2019`"",
+        "-DCMAKE_SYSTEM_VERSION=`"${CmakeSystemVersion}`"",
+        "-DCMAKE_GENERATOR_PLATFORM=`"${GeneratorPlatform}`"",
+        "-DCMAKE_PREFIX_PATH=`"${CmakePrefixPath}`"",
+        "-DENABLE_PLUGINS=OFF",
+        "-DENABLE_UI=ON",
+        "-DENABLE_SCRIPTING=OFF",
+        "$(if (Test-Path Variable:$Quiet) { "-Wno-deprecated -Wno-dev --log-level=ERROR" })"
+    )
+
+    Invoke-Expression "cmake ${CmakeCommand}"
+
+    Ensure-Directory ${ObsBuildDir}
+}
 
 function Build-OBS-Libs-Standalone {
-    $CheckoutDir = git rev-parse --show-toplevel
+    try {
+        $CheckoutDir = Invoke-Expression "git rev-parse --show-toplevel"
+    } Catch {
+        Write-Failure "Not a git checkout or no git client installed. Please install git on your system and use a git checkout to use this build script."
+        exit 1
+    }
 
     if (Test-Path ${CheckoutDir}/CI/include/build_environment.ps1) {
         . ${CheckoutDir}/CI/include/build_environment.ps1
@@ -80,7 +86,7 @@ function Build-OBS-Libs-Standalone {
 
 function Print-Usage {
     $Lines = @(
-        "Usage: ${MyInvocation.MyCommand.Name}",
+        "Usage: ${_ScriptName}",
         "-Help                    : Print this help",
         "-Quiet                   : Suppress most build process output",
         "-Verbose                 : Enable more verbose build process output",
@@ -93,6 +99,7 @@ function Print-Usage {
 }
 
 if(!(Test-Path variable:_RunObsBuildScript)) {
+    $_ScriptName = "$($MyInvocation.MyCommand.Name)"
     if($Help.isPresent) {
         Print-Usage
         exit 0

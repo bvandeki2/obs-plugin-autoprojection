@@ -15,22 +15,22 @@ install_obs-deps() {
     status "Set up precompiled macOS OBS dependencies v${1}"
     ensure_dir "${DEPS_BUILD_DIR}"
     step "Download..."
-    check_and_fetch "https://github.com/obsproject/obs-deps/releases/download/${1}/macos-deps-${1}-universal.tar.xz" "${2}"
-    mkdir -p obs-deps
+    check_and_fetch "https://github.com/obsproject/obs-deps/releases/download/${1}/macos-deps-${1}-${ARCH}.tar.xz" "${2}"
+    mkdir -p obs-plugin-deps
     step "Unpack..."
-    /usr/bin/tar -xf "./macos-deps-${1}-universal.tar.xz" -C ./obs-deps
-    /usr/bin/xattr -r -d com.apple.quarantine ./obs-deps
+    /usr/bin/tar -xf "./macos-deps-${1}-${ARCH}.tar.xz" -C ./obs-plugin-deps
+    /usr/bin/xattr -r -d com.apple.quarantine ./obs-plugin-deps
 }
 
 install_qt-deps() {
     status "Set up precompiled dependency Qt v${1}"
     ensure_dir "${DEPS_BUILD_DIR}"
     step "Download..."
-    check_and_fetch "https://github.com/obsproject/obs-deps/releases/download/${1}/macos-deps-qt-${1}-universal.tar.xz" "${2}"
-    mkdir -p obs-deps
+    check_and_fetch "https://github.com/obsproject/obs-deps/releases/download/${1}/macos-deps-qt-${1}-${ARCH}.tar.xz" "${2}"
+    mkdir -p obs-plugin-deps
     step "Unpack..."
-    /usr/bin/tar -xf "./macos-deps-qt-${1}-universal.tar.xz" -C ./obs-deps
-    /usr/bin/xattr -r -d com.apple.quarantine ./obs-deps
+    /usr/bin/tar -xf "./macos-deps-qt-${1}-${ARCH}.tar.xz" -C ./obs-plugin-deps
+    /usr/bin/xattr -r -d com.apple.quarantine ./obs-plugin-deps
 }
 
 install_obs-studio() {
@@ -87,8 +87,8 @@ install-dependencies-standalone() {
     source "${CHECKOUT_DIR}/CI/include/build_support_macos.sh"
 
     status "Setting up plugin build dependencies"
-    check_macos_version
     check_archs
+    check_macos_version
     install_dependencies
 }
 

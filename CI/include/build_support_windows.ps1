@@ -1,8 +1,9 @@
 $CIWorkflow = "${CheckoutDir}/.github/workflows/main.yml"
+$WorkflowContent = Get-Content ${CIWorkflow}
 
-$CIDepsVersion = Get-Content ${CIWorkflow} | Select-String "[ ]+DEPS_VERSION_WIN: '([0-9\-]+)'" | ForEach-Object{$_.Matches.Groups[1].Value}
-$CIQtVersion = Get-Content ${CIWorkflow} | Select-String "[ ]+QT_VERSION_WIN: '([0-9\.]+)'" | ForEach-Object{$_.Matches.Groups[1].Value}
-$CIObsVersion = Get-Content ${CIWorkflow} | Select-String "[ ]+OBS_VERSION: '([0-9\.]+)'" | ForEach-Object{$_.Matches.Groups[1].Value}
+$CIDepsVersion = ${WorkflowContent} | Select-String "[ ]+DEPS_VERSION_WIN: '([0-9\-]+)'" | ForEach-Object{$_.Matches.Groups[1].Value}
+$CIQtVersion = ${WorkflowContent} | Select-String "[ ]+QT_VERSION_WIN: '([0-9\.]+)'" | ForEach-Object{$_.Matches.Groups[1].Value}
+$CIObsVersion = ${WorkflowContent} | Select-String "[ ]+OBS_VERSION: '([0-9\.]+)'" | ForEach-Object{$_.Matches.Groups[1].Value}
 
 function Write-Status {
     param(
@@ -11,7 +12,7 @@ function Write-Status {
     )
 
     if (!($Quiet.isPresent)) {
-        if (Test-Path env:CI) {
+        if (Test-Path Env:CI) {
             Write-Host "[${ProductName}] ${output}"
         } else {
             Write-Host -ForegroundColor blue "[${ProductName}] ${output}"
@@ -26,7 +27,7 @@ function Write-Info {
     )
 
     if (!($Quiet.isPresent)) {
-        if (Test-Path env:CI) {
+        if (Test-Path Env:CI) {
             Write-Host " + ${output}"
         } else {
             Write-Host -ForegroundColor DarkYellow " + ${output}"
@@ -41,7 +42,7 @@ function Write-Step {
     )
 
     if (!($Quiet.isPresent)) {
-        if (Test-Path env:CI) {
+        if (Test-Path Env:CI) {
             Write-Host " + ${output}"
         } else {
             Write-Host -ForegroundColor green " + ${output}"
@@ -49,13 +50,13 @@ function Write-Step {
     }
 }
 
-function Write-Error {
+function Write-Failure {
     param(
         [parameter(Mandatory=$true)]
         [string] $output
     )
 
-    if (Test-Path env:CI) {
+    if (Test-Path Env:CI) {
         Write-Host " + ${output}"
     } else {
         Write-Host -ForegroundColor red " + ${output}"
@@ -98,14 +99,14 @@ function Ensure-Directory {
     Set-Location -Path $Directory
 }
 
-$BuildDirectory = "$(if (Test-Path Env:BuildDirectory) { $env:BuildDirectory } else { $BuildDirectory })"
-$BuildConfiguration = "$(if (Test-Path Env:BuildConfiguration) { $env:BuildConfiguration } else { $BuildConfiguration })"
-$BuildArch = "$(if (Test-Path Env:BuildArch) { $env:BuildArch } else { $BuildArch })"
-$OBSBranch = "$(if (Test-Path Env:OBSBranch) { $env:OBSBranch } else { $OBSBranch })"
-$WindowsDepsVersion = "$(if (Test-Path Env:WindowsDepsVersion ) { $env:WindowsDepsVersion } else { $CIDepsVersion })"
-$WindowsQtVersion = "$(if (Test-Path Env:WindowsQtVersion ) { $env:WindowsQtVersion } else { $CIQtVersion })"
-$CmakeSystemVersion = "$(if (Test-Path Env:CMAKE_SYSTEM_VERSION) { $Env:CMAKE_SYSTEM_VERSION } else { '10.0.18363.657' })"
-$OBSVersion = "$(if ( Test-Path Env:OBSVersion ) { $env:ObsVersion } else { $CIObsVersion })"
+$BuildDirectory = "$(if (Test-Path Env:BuildDirectory) { $Env:BuildDirectory } else { $BuildDirectory })"
+$BuildConfiguration = "$(if (Test-Path Env:BuildConfiguration) { $Env:BuildConfiguration } else { $BuildConfiguration })"
+$BuildArch = "$(if (Test-Path Env:BuildArch) { $Env:BuildArch } else { $BuildArch })"
+$OBSBranch = "$(if (Test-Path Env:OBSBranch) { $Env:OBSBranch } else { $OBSBranch })"
+$WindowsDepsVersion = "$(if (Test-Path Env:WindowsDepsVersion ) { $Env:WindowsDepsVersion } else { $CIDepsVersion })"
+$WindowsQtVersion = "$(if (Test-Path Env:WindowsQtVersion ) { $Env:WindowsQtVersion } else { $CIQtVersion })"
+$CmakeSystemVersion = "$(if (Test-Path Env:CMAKE_SYSTEM_VERSION) { $Env:CMAKE_SYSTEM_VERSION } else { "10.0.18363.657" })"
+$OBSVersion = "$(if ( Test-Path Env:OBSVersion ) { $Env:ObsVersion } else { $CIObsVersion })"
 
 function Install-Windows-Dependencies {
     Write-Status "Checking Windows build dependencies"
@@ -131,9 +132,10 @@ function Install-Windows-Dependencies {
         }
 
         if(!(Test-CommandExists "${Command}")) {
+            Write-Step "Install dependency ${ChocoName}"
             Invoke-Expression "choco install -y ${ChocoName}"
         }
     }
 
-    $env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
+    $Env:Path = [System.Environment]::GetEnvironmentVariable("Path", "Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path", "User")
 }

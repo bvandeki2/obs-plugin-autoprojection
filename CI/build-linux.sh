@@ -15,7 +15,7 @@
 #   -q, --quiet                     : Suppress most build process output
 #   -v, --verbose                   : Enable more verbose build process output
 #   -p, --package                   : Create installer for plugin
-#   -b, --build-dir                 : Specify alternative build directory
+#   --build-dir                     : Specify alternative build directory
 #                                     (default: build)
 #
 # Environment Variables (optional):
@@ -60,7 +60,7 @@ print_usage() {
         "-v, --verbose                  : Enable more verbose build process output\n" \
         "-d, --skip-dependency-checks   : Skip dependency checks\n" \
         "-p, --package                  : Create installer for plugin\n" \
-        "-b, --build-dir                : Specify alternative build directory (default: build)\n"
+        "--build-dir                    : Specify alternative build directory (default: build)\n"
 
 }
 
@@ -72,7 +72,7 @@ obs-build-main() {
             -q | --quiet ) export QUIET=TRUE; shift ;;
             -v | --verbose ) export VERBOSE=TRUE; shift ;;
             -p | --package ) PACKAGE=TRUE; shift ;;
-            -b | --build-dir ) BUILD_DIR="${2}"; shift 2 ;;
+            --build-dir ) BUILD_DIR="${2}"; shift 2 ;;
             -- ) shift; break ;;
             * ) break ;;
         esac
@@ -81,6 +81,7 @@ obs-build-main() {
     ensure_dir "${CHECKOUT_DIR}"
     step "Fetching version tags..."
     git fetch origin --tags
+
     GIT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
     GIT_HASH=$(git rev-parse --short HEAD)
     GIT_TAG=$(git describe --tags --abbrev=0 2&>/dev/null || true)

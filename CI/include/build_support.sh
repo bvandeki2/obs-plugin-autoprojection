@@ -68,7 +68,7 @@ caught_error() {
 BUILD_DIR="${BUILD_DIR:-build}"
 BUILD_CONFIG="${BUILD_CONFIG:-RelWithDebInfo}"
 CI_WORKFLOW="${CHECKOUT_DIR}/.github/workflows/main.yml"
-CURRENT_ARCH=$(uname -m)
+CURRENT_ARCH="$(uname -m)"
 CURRENT_DATE="$(date +"%Y-%m-%d")"
 
 ## Utility functions ##
@@ -86,17 +86,6 @@ check_ccache() {
         fi
     else
         info "CCache not available"
-    fi
-}
-
-_add_ccache_to_path() {
-    if [ "${CMAKE_CCACHE_OPTIONS}" ]; then
-        PATH="/usr/local/opt/ccache/libexec:${PATH}"
-        status "Compiler Info:"
-        local IFS=$'\n'
-        for COMPILER_INFO in $(type cc c++ gcc g++ clang clang++ || true); do
-            info "${COMPILER_INFO}"
-        done
     fi
 }
 

@@ -9,13 +9,18 @@
 ##############################################################################
 
 # Setup build environment
-
-CI_DEPS_VERSION=$(/bin/cat "${CI_WORKFLOW}" | /usr/bin/sed -En "s/[ ]+DEPS_VERSION_MAC: '([0-9\-]+)'/\1/p")
-CI_DEPS_HASH=$(/bin/cat "${CI_WORKFLOW}" | /usr/bin/sed -En "s/[ ]+DEPS_HASH_MAC: '([0-9a-f]+)'/\1/p")
-CI_QT_VERSION=$(/bin/cat "${CI_WORKFLOW}" | /usr/bin/sed -En "s/[ ]+QT_VERSION_MAC: '([0-9\.]+)'/\1/p" | /usr/bin/head -1)
-CI_QT_HASH=$(/bin/cat "${CI_WORKFLOW}" | /usr/bin/sed -En "s/[ ]+QT_HASH_MAC: '([0-9a-f]+)'/\1/p")
-CI_MACOSX_DEPLOYMENT_TARGET=$(/bin/cat "${CI_WORKFLOW}" | /usr/bin/sed -En "s/[ ]+MACOSX_DEPLOYMENT_TARGET: '([0-9\.]+)'/\1/p")
-CI_OBS_VERSION=$(/bin/cat "${CI_WORKFLOW}" | /usr/bin/sed -En "s/[ ]+OBS_VERSION: '([0-9\.]+)'/\1/p")
+WORKFLOW_CONTENT=$(/bin/cat "${CI_WORKFLOW}")
+CI_DEPS_VERSION=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+DEPS_VERSION_MAC: '([0-9\-]+)'/\1/p")
+CI_DEPS_HASH_X86_64=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+DEPS_HASH_MAC_X86_64: '([0-9a-f]+)'/\1/p")
+CI_DEPS_HASH_ARM64=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+DEPS_HASH_MAC_ARM64: '([0-9a-f]+)'/\1/p")
+CI_DEPS_HASH_UNIVERSAL=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+DEPS_HASH_MAC_UNIVERSAL: '([0-9a-f]+)'/\1/p")
+CI_QT_VERSION=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+QT_VERSION_MAC: '([0-9\.]+)'/\1/p" | /usr/bin/head -1)
+CI_QT_HASH_X86_64=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+QT_HASH_MAC_X86_64: '([0-9a-f]+)'/\1/p")
+CI_QT_HASH_ARM64=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+QT_HASH_MAC_ARM64: '([0-9a-f]+)'/\1/p")
+CI_QT_HASH_UNIVERSAL=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+QT_HASH_MAC_UNIVERSAL: '([0-9a-f]+)'/\1/p")
+CI_MACOSX_DEPLOYMENT_TARGET_X86_64=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+MACOSX_DEPLOYMENT_TARGET_X86_64: '([0-9\.]+)'/\1/p")
+CI_MACOSX_DEPLOYMENT_TARGET_ARM64=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+MACOSX_DEPLOYMENT_TARGET_ARM64: '([0-9\.]+)'/\1/p")
+CI_OBS_VERSION=$(echo "${WORKFLOW_CONTENT}" | /usr/bin/sed -En "s/[ ]+OBS_VERSION: '([0-9\.]+)'/\1/p")
 
 MACOS_VERSION="$(/usr/bin/sw_vers -productVersion)"
 MACOS_MAJOR="$(echo ${MACOS_VERSION} | /usr/bin/cut -d '.' -f 1)"
@@ -37,6 +42,23 @@ fi
 
 ## DEFINE UTILITIES ##
 check_macos_version() {
+    ARCH="${ARCH:-${CURRENT_ARCH}}"
+    if [ "${ARCH}" = "x86_64" ]; then
+        CI_MACOSX_DEPLOYMENT_TARGET="${CI_MACOSX_DEPLOYMENT_TARGET_X86_64}"
+        CI_QT_HASH="${CI_QT_HASH_X86_64}"
+        CI_DEPS_HASH="${CI_DEPS_HASH_X86_64}"
+    elif [ "${ARCH}" = "universal" ]; then
+        CI_MACOSX_DEPLOYMENT_TARGET="${CI_MACOSX_DEPLOYMENT_TARGET_X86_64}"
+        CI_QT_HASH="${CI_QT_HASH_UNIVERSAL}"
+        CI_DEPS_HASH="${CI_DEPS_HASH_UNIVERSAL}"
+    elif [ "${ARCH}" = "arm64" ]; then
+        CI_MACOSX_DEPLOYMENT_TARGET="${CI_MACOSX_DEPLOYMENT_TARGET_ARM64}"
+        CI_QT_HASH="${CI_QT_HASH_ARM64}"
+        CI_DEPS_HASH="${CI_DEPS_HASH_ARM64}"
+    else
+        caught_error "Unsupported architecture '${ARCH}' provided"
+    fi
+
     step "Check macOS version..."
     MIN_VERSION=${MACOSX_DEPLOYMENT_TARGET:-${CI_MACOSX_DEPLOYMENT_TARGET}}
     MIN_MAJOR=$(echo ${MIN_VERSION} | /usr/bin/cut -d '.' -f 1)
@@ -53,8 +75,7 @@ check_macos_version() {
 
 install_homebrew_deps() {
     if ! exists brew; then
-        error "Homebrew not found - please install homebrew (https://brew.sh)"
-        exit 1
+        caught_error "Homebrew not found - please install homebrew (https://brew.sh)"
     fi
 
     brew bundle --file "${CHECKOUT_DIR}/CI/include/Brewfile" ${QUIET:+--quiet}
@@ -90,6 +111,21 @@ check_archs() {
         caught_error "Unsupported architecture '${ARCH}' provided"
     else
         CMAKE_ARCHS="${ARCH}"
+    fi
+}
+
+_add_ccache_to_path() {
+    if [ "${CMAKE_CCACHE_OPTIONS}" ]; then
+        if [ "${CURRENT_ARCH}" == "arm64" ]; then
+            PATH="/opt/homebrew/opt/ccache/libexec:${PATH}"
+        else
+            PATH="/usr/local/opt/ccache/libexec:${PATH}"
+        fi
+        status "Compiler Info:"
+        local IFS=$'\n'
+        for COMPILER_INFO in $(type cc c++ gcc g++ clang clang++ || true); do
+            info "${COMPILER_INFO}"
+        done
     fi
 }
 

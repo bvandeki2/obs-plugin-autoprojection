@@ -2,7 +2,7 @@ Param(
     [Switch]$Help = $(if (Test-Path variable:Help) { $Help }),
     [Switch]$Quiet = $(if (Test-Path variable:Quiet) { $Quiet }),
     [Switch]$Verbose = $(if (Test-Path variable:Verbose) { $Verbose }),
-    [Switch]$NoChoco = $(if (Test-Path variable:NoChoco) { $true } else { $false }),
+    [Switch]$Choco = $(if (Test-Path variable:Choco) { $Choco }),
     [String]$BuildArch = $(if (Test-Path variable:BuildArch) { "${BuildArch}" } else { (Get-CimInstance CIM_OperatingSystem).OSArchitecture }),
     [String]$ProductName = $(if (Test-Path variable:ProductName) { "${ProductName}" } else { "obs-plugin" })
 )
@@ -27,7 +27,7 @@ Function Install-obs-deps {
     Write-Status "Setup for pre-built Windows OBS dependencies v${Version}"
     Ensure-Directory $DepsBuildDir
 
-    if (!(Test-Path $DepsBuildDir/dependencies${Version})) {
+    if (!(Test-Path "$DepsBuildDir/dependencies${Version}")) {
         Write-Status "Setting up pre-built Windows OBS dependencies v${Version}"
 
         Write-Step "Download..."
@@ -53,7 +53,7 @@ function Install-qt-deps {
     Write-Status "Setup for pre-built dependency Qt v${Version}"
     Ensure-Directory $DepsBuildDir
 
-    if (!(Test-Path $DepsBuildDir/Qt_${Version})) {
+    if (!(Test-Path "$DepsBuildDir/Qt_${Version}")) {
         Write-Status "Setting up OBS dependency Qt v${Version}"
 
         Write-Step "Download..."
@@ -64,8 +64,8 @@ function Install-qt-deps {
         Write-Step "Unpack..."
 
         # TODO: Replace with zip and properly package Qt to share directory with other deps
-        & 7z x Qt_${Version}.7z
-        & mv ${Version} "Qt_${Version}"
+        Invoke-Expression "7z x Qt_${Version}.7z"
+        Move-Item -Path "${Version}" -Destination "Qt_${Version}"
     } else {
         Write-Step "Found existing pre-built Qt..."
     }
@@ -83,16 +83,17 @@ function Install-obs-studio {
     Ensure-Directory ${ObsBuildDir}
 
     if (!(Test-Path "${ObsBuildDir}/.git")) {
-        & git clone --recursive https://github.com/obsproject/obs-studio "${pwd}"
-        & git fetch origin --tags
-        & git checkout ${CheckoutRef} -b obs-plugin-build
+        Invoke-Expression "git clone --recursive https://github.com/obsproject/obs-studio `"${pwd}`""
+        Invoke-Expression "git fetch origin --tags"
+        Invoke-Expression "git checkout ${CheckoutRef} -b obs-plugin-build"
     } else {
-        $BranchExists = &git show-ref --verify --quiet refs/heads/obs-plugin-build
+        $null = Invoke-Expression "git show-ref --verify --quiet refs/heads/obs-plugin-build"
+        $BranchExists = $LastExitCode -eq 0
 
-        if ($BranchExists -Eq $false) {
-            & git checkout ${CheckoutRef} -b obs-plugin-build
+        if ($BranchExists -eq $false) {
+            Invoke-Expression "git checkout ${CheckoutRef} -b obs-plugin-build"
         } else {
-            & git checkout obs-plugin-build
+            Invoke-Expression "git checkout obs-plugin-build"
         }
     }
 }
@@ -113,14 +114,14 @@ function Install-Dependencies {
         $DependencyVersion = $Dependency[1]
 
         $FunctionName = "Install-${DependencyName}"
-        & $FunctionName -Version $DependencyVersion
+        Invoke-Expression "${FunctionName} -Version ${DependencyVersion}"
     }
 
     Ensure-Directory ${CheckoutDir}
 }
 
 function Install-Dependencies-Standalone {
-    $CheckoutDir = git rev-parse --show-toplevel
+    $CheckoutDir = Invoke-Expression "git rev-parse --show-toplevel"
 
     if (Test-Path ${CheckoutDir}/CI/include/build_environment.ps1) {
         . ${CheckoutDir}/CI/include/build_environment.ps1
@@ -137,11 +138,11 @@ function Install-Dependencies-Standalone {
 
 function Print-Usage {
     $Lines = @(
-        "Usage: ${MyInvocation.MyCommand.Name}",
+        "Usage: ${_ScriptName}",
         "-Help                    : Print this help",
         "-Quiet                   : Suppress most build process output",
         "-Verbose                 : Enable more verbose build process output",
-        "-NoChoco                 : Skip automatic dependency installation via Chocolatey - Default: on"
+        "-Choco                   : Enable automatic dependency installation via Chocolatey - Default: off"
         "-BuildArch               : Build architecture to use (32bit or 64bit) - Default: local architecture"
     )
 
@@ -149,6 +150,7 @@ function Print-Usage {
 }
 
 if(!(Test-Path variable:_RunObsBuildScript)) {
+    $_ScriptName = "$($MyInvocation.MyCommand.Name)"
     if ($Help.isPresent) {
         Print-Usage
         exit 0
